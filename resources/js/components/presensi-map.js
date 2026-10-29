@@ -4,6 +4,10 @@ import { L, createMap, distance, dotIcon, schoolIcon } from './geo';
  * Halaman presensi siswa: memantau lokasi secara live, menampilkan jarak ke
  * sekolah dan hanya mengaktifkan tombol saat siswa berada dalam radius.
  * Validasi final tetap dilakukan di server (PresensiService).
+ *
+ * Catatan: elemen yang bergantung pada `status` di view memakai :hidden,
+ * bukan x-show — x-show bisa macet bila status berganti beberapa kali
+ * dalam satu tick (mis. dua callback geolokasi gagal bersamaan).
  */
 export function presensiMap({ school }) {
     let map, userMarker, accuracyCircle, watchId;
@@ -44,20 +48,46 @@ export function presensiMap({ school }) {
             if (watchId !== undefined) navigator.geolocation.clearWatch(watchId);
         },
 
+        get lowAccuracy() {
+            return this.accuracy !== null && this.accuracy > school.radius;
+        },
+
+        /**
+         * Dua tahap supaya juga cepat di laptop (tanpa GPS):
+         * 1. Lokasi jaringan (Wi-Fi/IP) — cepat, boleh cache 1 menit.
+         * 2. Pantau lokasi akurasi tinggi (GPS bila ada) dan perbarui terus.
+         * Error hanya ditampilkan bila belum ada lokasi sama sekali; watchPosition
+         * tetap mencoba lagi setelah timeout, jadi status pulih sendiri.
+         */
         locate() {
             if (!('geolocation' in navigator)) {
                 this.fail('Browser Anda tidak mendukung geolokasi.');
                 return;
             }
 
+            if (!window.isSecureContext) {
+                this.fail('Lokasi hanya bisa diakses lewat HTTPS atau localhost. Buka aplikasi melalui alamat HTTPS.');
+                return;
+            }
+
             this.status = 'locating';
+            this.error = '';
             if (watchId !== undefined) navigator.geolocation.clearWatch(watchId);
 
-            watchId = navigator.geolocation.watchPosition(
-                (pos) => this.update(pos.coords),
-                (err) => this.fail(messageFor(err)),
-                { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
-            );
+            const onError = (err) => {
+                if (this.lat === null) this.fail(messageFor(err));
+            };
+
+            navigator.geolocation.getCurrentPosition((pos) => this.update(pos.coords), (err) => {
+                // Timeout tahap cepat diabaikan; tahap presisi masih berjalan.
+                if (err.code !== err.TIMEOUT) onError(err);
+            }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 });
+
+            watchId = navigator.geolocation.watchPosition((pos) => this.update(pos.coords), onError, {
+                enableHighAccuracy: true,
+                timeout: 30000,
+                maximumAge: 10000,
+            });
         },
 
         update({ latitude, longitude, accuracy }) {
@@ -96,9 +126,9 @@ function messageFor(err) {
         case err.PERMISSION_DENIED:
             return 'Akses lokasi ditolak. Izinkan akses lokasi di pengaturan browser, lalu coba lagi.';
         case err.POSITION_UNAVAILABLE:
-            return 'Lokasi tidak tersedia. Pastikan GPS aktif.';
+            return 'Lokasi tidak tersedia. Aktifkan GPS di ponsel, atau layanan lokasi Windows/macOS dan Wi-Fi di laptop.';
         case err.TIMEOUT:
-            return 'Waktu mencari lokasi habis. Coba lagi di tempat terbuka.';
+            return 'Waktu mencari lokasi habis. Pastikan layanan lokasi perangkat dan Wi-Fi aktif, lalu coba lagi.';
         default:
             return 'Gagal mendapatkan lokasi.';
     }

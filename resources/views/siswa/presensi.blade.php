@@ -14,7 +14,7 @@
                 <span class="pointer-events-auto inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1.5 text-xs font-medium text-ink-700 shadow-pop">
                     <span class="size-2 rounded-full bg-brand-500"></span> Radius {{ $sekolah['radius'] }} m
                 </span>
-                <span x-cloak x-show="status === 'ready'" class="pointer-events-auto inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1.5 text-xs font-medium text-ink-700 shadow-pop">
+                <span hidden :hidden="status !== 'ready'" class="pointer-events-auto inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1.5 text-xs font-medium text-ink-700 shadow-pop">
                     <span class="size-2 rounded-full bg-sky-500"></span> Akurasi ±<span x-text="accuracy"></span> m
                 </span>
             </div>
@@ -26,26 +26,30 @@
                 <p class="text-sm font-medium text-ink-500">Jarak ke sekolah</p>
 
                 {{-- Mencari lokasi --}}
-                <div x-show="status === 'locating'" class="mt-3 flex items-center gap-3">
+                <div :hidden="status !== 'locating'" class="mt-3 flex items-center gap-3">
                     <span class="size-6 animate-spin rounded-full border-[3px] border-brand-200 border-t-brand-500"></span>
                     <span class="text-sm text-ink-600">Mencari lokasi Anda…</span>
                 </div>
 
                 {{-- Gagal --}}
-                <div x-cloak x-show="status === 'error'" class="mt-3 rounded-xl bg-red-50 p-4">
+                <div hidden :hidden="status !== 'error'" class="mt-3 rounded-xl bg-red-50 p-4">
                     <p class="flex items-start gap-2 text-sm text-red-700"><x-icon name="alert" size="17" class="mt-0.5" /> <span x-text="error"></span></p>
                     <button type="button" class="btn btn-secondary btn-sm mt-3" @click="locate()"><x-icon name="refresh" size="14" /> Coba lagi</button>
                 </div>
 
                 {{-- Siap --}}
-                <div x-cloak x-show="status === 'ready'" class="mt-1">
+                <div hidden :hidden="status !== 'ready'" class="mt-1">
                     <p class="font-serif text-5xl font-medium tracking-tight text-ink-900 tabular-nums" x-text="distanceLabel"></p>
                     <span class="mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold"
                           :class="inside ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'">
                         <span class="size-1.5 rounded-full" :class="inside ? 'bg-emerald-500' : 'bg-red-500'"></span>
                         <span x-text="inside ? 'Di dalam area sekolah' : 'Di luar area sekolah'"></span>
                     </span>
-                    <p x-show="!inside" class="mt-3 text-sm text-ink-500">Dekati area sekolah hingga berada dalam radius {{ $sekolah['radius'] }} m untuk dapat presensi.</p>
+                    <p :hidden="inside" class="mt-3 text-sm text-ink-500">Dekati area sekolah hingga berada dalam radius {{ $sekolah['radius'] }} m untuk dapat presensi.</p>
+                    <p hidden :hidden="!lowAccuracy" class="mt-3 flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-xs text-amber-800">
+                        <x-icon name="info" size="15" class="mt-px" />
+                        <span>Akurasi lokasi rendah (±<span x-text="accuracy"></span> m), biasanya karena perangkat tanpa GPS. Gunakan ponsel dengan GPS aktif agar hasilnya tepat.</span>
+                    </p>
                 </div>
             </div>
 
