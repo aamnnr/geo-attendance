@@ -10,28 +10,20 @@ return new class extends Migration
     {
         Schema::create('izins', function (Blueprint $table) {
             $table->id('izin_id');
-            $table->unsignedBigInteger('siswa_id'); // FK ke tabel siswas
-            $table->unsignedBigInteger('admin_id')->nullable(); // FK opsional ke admin
-
-            $table->string('keterangan', 100); // alasan izin
-            $table->date('izin_dari'); // mulai tanggal izin
-            $table->date('izin_sampai'); // selesai tanggal izin
-
-            // status izin: pending, disetujui, atau ditolak
-            $table->enum('status', ['pending', 'disetujui', 'ditolak'])->default('pending');
-
+            $table->foreignId('siswa_id')->constrained('siswas', 'siswa_id')->cascadeOnDelete();
+            $table->foreignId('admin_id')->nullable()->constrained('admins', 'admin_id')->nullOnDelete();
+            // Lihat App\Enums\JenisIzin & App\Enums\StatusIzin.
+            $table->string('jenis', 20)->default('izin');
+            $table->string('keterangan');
+            $table->date('izin_dari');
+            $table->date('izin_sampai');
+            $table->string('bukti')->nullable();
+            $table->string('status', 20)->default('pending');
+            $table->string('catatan_admin')->nullable();
+            $table->timestamp('diproses_pada')->nullable();
             $table->timestamps();
 
-            // 🔗 relasi foreign key
-            $table->foreign('siswa_id')
-                ->references('siswa_id')
-                ->on('siswas')
-                ->onDelete('cascade');
-
-            $table->foreign('admin_id')
-                ->references('admin_id')
-                ->on('admins')
-                ->onDelete('set null');
+            $table->index('status');
         });
     }
 

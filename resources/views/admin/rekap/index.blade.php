@@ -1,151 +1,148 @@
-@extends('layouts.app')
+@php
+    use App\Enums\StatusPresensi;
 
-@section('title', 'Data Rekap Presensi')
-@section('page-title', 'Rekap Presensi')
+    $statusAktif = $filters['status'] ?? null;
+    $filterLain = collect($filters)->except('status')->filter()->all();
+    $total = array_sum($ringkasan);
+@endphp
 
-@section('page-actions')
-    <a href="{{ route('admin.rekap.create') }}" class="btn btn-primary">
-        <i class="bi bi-plus-circle me-1"></i>Tambah Rekap
-    </a>
-@endsection
+<x-layouts.admin title="Kehadiran & Izin" subtitle="Rekap presensi seluruh siswa. Filter, koreksi, dan ekspor laporan.">
+    <x-slot:tabs>@include('admin.partials.attendance-tabs')</x-slot:tabs>
 
-@section('content')
+    <div id="rekap-form" x-data="crudForm({
+            storeUrl: @js(route('admin.rekap.store')),
+            updateUrl: @js(route('admin.rekap.update', '__ID__')),
+            defaults: { siswa_id: '', tanggal: @js(today()->toDateString()), status: 'hadir', jam_masuk: '', jam_keluar: '', keterangan: '' },
+            old: @js(session()->getOldInput()),
+            hasErrors: @js($errors->any()),
+         })">
 
-<!-- ==== FORM FILTER ==== -->
-<div class="card shadow-sm border-0 mb-4">
-    <div class="card-header bg-light py-3">
-        <h5 class="mb-0">
-            <i class="bi bi-funnel me-2"></i>Filter Data Rekap
-        </h5>
-    </div>
-    <!-- 
-      Form ini menggunakan method GET.
-      Tombol Filter akan mengirim ke 'admin.rekap.index'
-      Tombol Ekspor akan mengirim ke rute ekspor menggunakan 'formaction'
-    -->
-    <form action="{{ route('admin.rekap.index') }}" method="GET">
-        <div class="card-body">
-            <div class="row g-3">
-                <!-- Filter Kelas -->
-                <div class="col-md-4">
-                    <label for="kelas_id" class="form-label">Kelas</label>
-                    <select name="kelas_id" id="kelas_id" class="form-select">
-                        <option value="">Semua Kelas</option>
-                        @foreach($kelas_list as $kelas)
-                            <option value="{{ $kelas->kelas_id }}" 
-                                    {{ request('kelas_id') == $kelas->kelas_id ? 'selected' : '' }}>
-                                {{ $kelas->kelas_nama }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
-                <!-- Filter Tanggal Mulai -->
-                <div class="col-md-4">
-                    <label for="tanggal_mulai" class="form-label">Dari Tanggal (Minggu/Bulan)</label>
-                    <input type="date" name="tanggal_mulai" id="tanggal_mulai" 
-                           class="form-control" value="{{ request('tanggal_mulai') }}">
-                </div>
-                <!-- Filter Tanggal Selesai -->
-                <div class="col-md-4">
-                    <label for="tanggal_sampai" class="form-label">Sampai Tanggal (Minggu/Bulan)</label>
-                    <input type="date" name="tanggal_sampai" id="tanggal_sampai" 
-                           class="form-control" value="{{ request('tanggal_sampai') }}">
-                </div>
+        {{-- Filter --}}
+        <form method="GET" class="card mb-5 grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr_auto]" x-data @change="$el.requestSubmit()">
+            @if ($statusAktif)
+                <input type="hidden" name="status" value="{{ $statusAktif }}">
+            @endif
+            <div class="relative">
+                <x-icon name="search" size="16" class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-400" />
+                <input type="search" name="q" value="{{ $filters['q'] ?? '' }}" placeholder="Cari nama / NIS…" class="form-input pl-9" @change.stop>
             </div>
-        </div>
-        <div class="card-footer bg-light text-end">
-            <!-- Tombol Aksi -->
-            <a href="{{ route('admin.rekap.index') }}" class="btn btn-secondary">
-                <i class="bi bi-arrow-clockwise me-1"></i>Reset
-            </a>
-            <button type="submit" class="btn btn-primary">
-                <i class="bi bi-search me-1"></i>Terapkan Filter
-            </button>
-            <button type="submit" formaction="{{ route('admin.rekap.export.excel') }}" 
-                    class="btn btn-success">
-                <i class="bi bi-file-earmark-excel me-1"></i>Ekspor Excel
-            </button>
-            <button type="submit" formaction="{{ route('admin.rekap.export.pdf') }}" 
-                    class="btn btn-danger">
-                <i class="bi bi-file-earmark-pdf me-1"></i>Ekspor PDF
-            </button>
-        </div>
-    </form>
-</div>
-<!-- ==== AKHIR FORM FILTER ==== -->
+            <x-form.select name="kelas_id" :options="$kelasList->pluck('kelas_nama', 'kelas_id')" :value="$filters['kelas_id'] ?? null" placeholder="Semua kelas" />
+            <input type="date" name="tanggal_mulai" value="{{ $filters['tanggal_mulai'] ?? '' }}" class="form-input" aria-label="Dari tanggal">
+            <input type="date" name="tanggal_sampai" value="{{ $filters['tanggal_sampai'] ?? '' }}" class="form-input" aria-label="Sampai tanggal">
+            <div class="flex gap-2">
+                <button type="submit" class="btn btn-dark flex-1"><x-icon name="filter" size="15" /> Terapkan</button>
+                @if ($filterLain)
+                    <a href="{{ route('admin.rekap.index', array_filter(['status' => $statusAktif])) }}" class="btn btn-ghost" title="Reset filter"><x-icon name="x" size="16" /></a>
+                @endif
+            </div>
+        </form>
 
-
-<div class="card shadow border-0">
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-striped table-hover align-middle">
-                <thead class="table-dark">
-                    <tr>
-                        <th>Tanggal</th>
-                        <th>Nama Siswa</th>
-                        <th>Kelas</th>
-                        <th>Jam Masuk</th>
-                        <th>Jam Keluar</th>
-                        <th>Status</th>
-                        <th>Aksi</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($rekaps as $rekap)
-                    <tr>
-                        <!-- Format tanggal agar lebih rapi -->
-                        <td>{{ \Carbon\Carbon::parse($rekap->tanggal)->isoFormat('D MMM Y') }}</td>
-                        <td>{{ $rekap->siswa->siswa_nama ?? 'Siswa Dihapus' }}</td>
-                        <td>{{ $rekap->siswa->kelas->kelas_nama ?? 'Kelas Dihapus' }}</td>
-                        <td>{{ $rekap->jam_masuk ? \Carbon\Carbon::parse($rekap->jam_masuk)->format('H:i') : '-' }}</td>
-                        <td>{{ $rekap->jam_keluar ? \Carbon\Carbon::parse($rekap->jam_keluar)->format('H:i') : '-' }}</td>
-                        <td>
-                            @if($rekap->status == 'Hadir')
-                                <span class="badge bg-success">Hadir</span>
-                            @elseif($rekap->status == 'Izin')
-                                <span class="badge bg-warning text-dark">Izin</span>
-                            @elseif($rekap->status == 'Alpha')
-                                <span class="badge bg-danger">Alpha</span>
-                            @elseif($rekap->status == 'Terlambat')
-                                <span class="badge bg-info">Terlambat</span>
-                            @else
-                                <span class="badge bg-secondary">{{ $rekap->status }}</span>
-                            @endif
-                        </td>
-                        <td>
-                            <div class="btn-group btn-group-sm" role="group">
-                                <a href="{{ route('admin.rekap.edit', $rekap->rekap_id) }}" class="btn btn-warning">
-                                    <i class="bi bi-pencil"></i>
-                                </a>
-                                <form action="{{ route('admin.rekap.destroy', $rekap->rekap_id) }}" method="POST" class="d-inline">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="btn btn-danger" onclick="return confirm('Yakin hapus rekap ini?')">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </form>
-                            </div>
-                        </td>
-                    </tr>
-                    @empty
-                    <tr>
-                        <td colspan="7" class="text-center py-4">
-                            <i class="bi bi-clipboard-data display-4 text-muted"></i>
-                            <p class="text-muted mt-2">Tidak ada data rekap yang cocok dengan filter Anda.</p>
-                            <a href="{{ route('admin.rekap.index') }}" class="btn btn-primary mt-2">
-                                <i class="bi bi-arrow-clockwise me-1"></i>Reset Filter
+        <x-table-card :paginator="$rekaps">
+            <x-slot:header>
+                <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:gap-6">
+                    <h2 class="text-xl font-semibold tracking-tight text-ink-900">{{ $rekaps->total() }} <span class="font-medium">Rekap</span></h2>
+                    <nav class="segmented max-w-full overflow-x-auto" aria-label="Filter status">
+                        <a href="{{ route('admin.rekap.index', $filterLain) }}" class="segmented-item" @if (! $statusAktif) aria-current="page" @endif>
+                            Semua <span class="segmented-count">{{ $total }}</span>
+                        </a>
+                        @foreach (StatusPresensi::cases() as $status)
+                            <a href="{{ route('admin.rekap.index', [...$filterLain, 'status' => $status->value]) }}" class="segmented-item"
+                               @if ($statusAktif === $status->value) aria-current="page" @endif>
+                                {{ $status->label() }} <span class="segmented-count">{{ $ringkasan[$status->value] }}</span>
                             </a>
-                        </td>
-                    </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
+                        @endforeach
+                    </nav>
+                </div>
 
-        <!-- Tampilkan Pagination Links -->
-        <div class="mt-3">
-            {{ $rekaps->links() }}
-        </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <div class="relative" x-data="{ open: false }" @click.outside="open = false">
+                        <button type="button" class="btn btn-secondary" @click="open = !open"><x-icon name="download" size="16" /> Ekspor <x-icon name="chevron-down" size="14" /></button>
+                        <div x-cloak x-show="open" x-transition.origin.top.right class="absolute right-0 z-20 mt-2 w-48 rounded-xl border border-ink-200 bg-white p-1.5 shadow-pop">
+                            <a href="{{ route('admin.rekap.export.excel', $filters) }}" class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-ink-700 hover:bg-ink-100">
+                                <x-icon name="file-spreadsheet" size="16" class="text-emerald-600" /> Excel (.xlsx)
+                            </a>
+                            <a href="{{ route('admin.rekap.export.pdf', $filters) }}" class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-ink-700 hover:bg-ink-100">
+                                <x-icon name="file-text" size="16" class="text-red-500" /> PDF
+                            </a>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-primary" @click="create()"><x-icon name="plus" size="16" stroke="2.4" /> Tambah Rekap</button>
+                </div>
+            </x-slot:header>
+
+            @if ($rekaps->isEmpty())
+                <x-empty-state icon="clipboard" title="Tidak ada rekap" description="Belum ada data presensi yang cocok dengan filter ini." />
+            @else
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Nama</th>
+                            <th>Tanggal</th>
+                            <th>Masuk</th>
+                            <th>Pulang</th>
+                            <th>Jarak</th>
+                            <th>Status</th>
+                            <th>Keterangan</th>
+                            <th class="w-20"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($rekaps as $rekap)
+                            <tr>
+                                <td>
+                                    <a href="{{ route('admin.siswa.show', $rekap->siswa) }}" class="flex items-center gap-3">
+                                        <x-avatar :initials="$rekap->siswa->inisial" :seed="$rekap->siswa->siswa_nama" />
+                                        <div class="min-w-0">
+                                            <p class="truncate font-medium text-ink-900">{{ $rekap->siswa->siswa_nama }}</p>
+                                            <p class="truncate text-xs text-ink-400">{{ $rekap->siswa->kelas->kelas_nama }} · {{ $rekap->siswa->siswa_nis }}</p>
+                                        </div>
+                                    </a>
+                                </td>
+                                <td class="whitespace-nowrap">{{ $rekap->tanggal->translatedFormat('D, j M Y') }}</td>
+                                <td class="tabular-nums">{{ $rekap->jamMasuk() ?? '—' }}</td>
+                                <td class="tabular-nums">{{ $rekap->jamKeluar() ?? '—' }}</td>
+                                <td class="whitespace-nowrap text-ink-500 tabular-nums">{{ $rekap->jarak !== null ? $rekap->jarak.' m' : '—' }}</td>
+                                <td><x-badge :status="$rekap->status" /></td>
+                                <td class="max-w-56 truncate text-ink-500" title="{{ $rekap->keterangan }}">{{ $rekap->keterangan ?? '—' }}</td>
+                                <td class="text-right whitespace-nowrap">
+                                    <button type="button" class="btn-icon size-8" title="Ubah" aria-label="Ubah rekap"
+                                            @click="edit({{ $rekap->rekap_id }}, @js([
+                                                'siswa_id' => (string) $rekap->siswa_id,
+                                                'tanggal' => $rekap->tanggal->toDateString(),
+                                                'status' => $rekap->status->value,
+                                                'jam_masuk' => $rekap->jamMasuk() ?? '',
+                                                'jam_keluar' => $rekap->jamKeluar() ?? '',
+                                                'keterangan' => $rekap->keterangan ?? '',
+                                            ]))">
+                                        <x-icon name="pencil" size="16" />
+                                    </button>
+                                    <x-delete-button :action="route('admin.rekap.destroy', $rekap)" title="Hapus rekap?"
+                                                     message="Rekap {{ $rekap->siswa->siswa_nama }} tanggal {{ $rekap->tanggal->translatedFormat('j M Y') }} akan dihapus." />
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            @endif
+        </x-table-card>
+
+        <x-modal title="Tambah Rekap" title-expr="isEditing ? 'Ubah Rekap' : 'Tambah Rekap'" description="Koreksi manual data presensi siswa." max-width="lg">
+            <form method="POST" :action="action" class="space-y-4">
+                <x-form.crud-meta form="rekap-form" />
+                <x-form.select name="siswa_id" label="Siswa" x-model="form.siswa_id" placeholder="Pilih siswa…" required
+                               :options="$siswaList->mapWithKeys(fn ($s) => [$s->siswa_id => $s->siswa_nama.' — '.$s->kelas->kelas_nama])" />
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <x-form.input type="date" name="tanggal" label="Tanggal" x-model="form.tanggal" :max="today()->toDateString()" required />
+                    <x-form.select name="status" label="Status" x-model="form.status" :options="StatusPresensi::options()" required />
+                    <x-form.input type="time" name="jam_masuk" label="Jam masuk" x-model="form.jam_masuk" />
+                    <x-form.input type="time" name="jam_keluar" label="Jam pulang" x-model="form.jam_keluar" />
+                </div>
+                <x-form.input name="keterangan" label="Keterangan" x-model="form.keterangan" placeholder="Opsional" />
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" class="btn btn-secondary" @click="close()">Batal</button>
+                    <button type="submit" class="btn btn-primary" x-text="isEditing ? 'Simpan Perubahan' : 'Simpan Rekap'">Simpan</button>
+                </div>
+            </form>
+        </x-modal>
     </div>
-</div>
-@endsection
+</x-layouts.admin>

@@ -1,311 +1,102 @@
-# Sistem Presensi Sekolah
+# GeoPresensi
 
-Sistem presensi berbasis web dan mobile untuk sekolah yang menggunakan teknologi geolokasi untuk memastikan siswa melakukan presensi di lokasi yang benar. Sistem ini dibangun dengan Laravel dan menyediakan antarmuka untuk admin dan siswa.
+Sistem presensi siswa berbasis lokasi (geofencing) dengan Laravel 12. Siswa melakukan presensi masuk/pulang dari ponsel ketika berada dalam radius sekolah; admin mengelola siswa, kelas, jadwal, izin, hari libur, dan mengekspor rekap ke Excel/PDF.
 
-## ✨ Fitur Utama
+## Fitur
 
-### 👨‍💼 Fitur Admin
+**Portal siswa**
+- Presensi masuk & pulang dengan peta live (Leaflet), jarak ke sekolah, dan validasi radius di server
+- Status otomatis: *Hadir* / *Terlambat* (berdasarkan jam pelajaran pertama + toleransi)
+- Riwayat presensi per bulan, jadwal pelajaran, pengajuan izin dengan lampiran (bisa dibatalkan selama menunggu)
+- Profil: ubah email, HP, alamat, dan password
 
--   **Dashboard** - Ringkasan data presensi, izin, dan statistik siswa
--   **Manajemen Siswa** - Tambah, edit, hapus data siswa
--   **Manajemen Kelas** - Kelola data kelas dan jurusan
--   **Manajemen Jadwal** - Atur jadwal pelajaran per kelas
--   **Monitoring Presensi** - Lihat rekap presensi harian/bulanan
--   **Manajemen Izin** - Approve/reject permohonan izin siswa
--   **Ekspor Data** - Export laporan presensi ke Excel/PDF
--   **Pengaturan Sistem** - Konfigurasi lokasi sekolah dan radius presensi
--   **Log Aktivitas** - Monitoring aktivitas sistem
+**Panel admin**
+- Dashboard: statistik hari ini, grafik tren 7 hari, izin menunggu, aktivitas terbaru
+- CRUD siswa (cari & filter), kelas, jadwal (cek bentrok jam), rekap (koreksi manual)
+- Persetujuan izin (setujui / tolak dengan catatan) — izin disetujui otomatis membuat rekap *Izin/Sakit*
+- Hari libur (presensi & tanda Alpa otomatis dinonaktifkan)
+- Pengaturan lokasi sekolah lewat peta, radius, toleransi terlambat, batas presensi masuk
+- Ekspor rekap ke Excel & PDF sesuai filter, log aktivitas
 
-### 👨‍🎓 Fitur Siswa
+**Lainnya**
+- Penandaan *Alpa* otomatis setiap hari pukul 23:59 (`php artisan rekap:alpa`)
+- REST API (Sanctum) untuk aplikasi mobile
 
--   **Presensi Online** - Check-in/check-out dengan validasi lokasi GPS
--   **Lihat Jadwal** - Akses jadwal pelajaran kelas
--   **Rekap Presensi** - Lihat riwayat presensi pribadi
--   **Pengajuan Izin** - Ajukan izin dengan upload bukti
--   **Profile Management** - Update data pribadi
-
-### 📱 API Mobile
-
--   RESTful API untuk integrasi aplikasi mobile
--   Authentication dengan Laravel Sanctum
--   Endpoint untuk presensi, jadwal, dan data siswa
-
-## 🛠️ Tech Stack
-
--   **Backend**: Laravel 12.0
--   **Database**: SQLite (default), MySQL/MariaDB/PostgreSQL
--   **Frontend**: Blade Templates, Bootstrap 5, Tailwind CSS
--   **JavaScript**: Vite, Axios
--   **Authentication**: Laravel Sanctum
--   **Export**: Laravel Excel, DomPDF
--   **Queue**: Laravel Queue (untuk background jobs)
-
-## 📋 Prerequisites
-
--   PHP >= 8.2
--   Composer
--   Node.js & NPM
--   SQLite / MySQL / PostgreSQL
-
-## 🚀 Instalasi
-
-1. **Clone Repository**
-
-    ```bash
-    git clone <repository-url>
-    cd geo-attendance
-    ```
-
-2. **Install Dependencies**
-
-    ```bash
-    composer install
-    npm install
-    ```
-
-3. **Environment Setup**
-
-    ```bash
-    cp .env.example .env
-    php artisan key:generate
-    ```
-
-4. **Database Configuration**
-   Edit file `.env` untuk konfigurasi database:
-
-    ```env
-    DB_CONNECTION=sqlite
-    # atau untuk MySQL:
-    # DB_CONNECTION=mysql
-    # DB_HOST=127.0.0.1
-    # DB_PORT=3306
-    # DB_DATABASE=geo_attendance
-    # DB_USERNAME=your_username
-    # DB_PASSWORD=your_password
-    ```
-
-5. **Database Migration & Seeding**
-
-    ```bash
-    php artisan migrate
-    php artisan db:seed
-    ```
-
-6. **Build Assets**
-
-    ```bash
-    npm run build
-    # atau untuk development:
-    npm run dev
-    ```
-
-7. **Storage Link** (untuk upload file)
-    ```bash
-    php artisan storage:link
-    ```
-
-## ⚙️ Konfigurasi
-
-### Lokasi Sekolah
-
-Lokasi sekolah diatur secara dinamis melalui dashboard admin di menu **Settings**. Admin dapat mengubah koordinat GPS dan radius presensi sesuai kebutuhan sekolah.
-
-Untuk konfigurasi awal, edit file `config/lokasi.php`:
-
-```php
-return [
-    'latitude' => -7.7956,  // Koordinat Yogyakarta
-    'longitude' => 110.3695,
-    'radius' => 100, // Radius dalam meter
-];
-```
-
-### Queue Worker (Opsional)
-
-Untuk menjalankan background jobs:
+## Instalasi
 
 ```bash
-php artisan queue:work
-```
-
-## 🏃‍♂️ Menjalankan Aplikasi
-
-### Development Mode
-
-```bash
-composer run dev
-```
-
-Perintah ini akan menjalankan:
-
--   Laravel server di `http://localhost:8000`
--   Queue worker
--   Log viewer
--   Vite dev server
-
-### Production Mode
-
-```bash
+composer install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate --seed
+php artisan storage:link
+npm install
+npm run build
 php artisan serve
 ```
 
-## 📚 API Documentation
+Untuk development: `composer run dev` (server, queue, log, dan Vite sekaligus).
+Agar tanda Alpa otomatis berjalan: `php artisan schedule:work`.
 
-### Authentication
+> Skema database telah dirapikan. Jika sebelumnya sudah punya database lama, jalankan `php artisan migrate:fresh --seed`.
 
-Semua endpoint API (kecuali login) memerlukan Bearer token.
+### Akun demo
 
-#### Login Admin
+| Peran | Login | Password |
+|-------|-------|----------|
+| Admin | `admin` | `password` |
+| Siswa | NIS `22001` (atau `22002`, `22003`) | `123456` |
 
-```http
-POST /api/admin/login
-Content-Type: application/json
+Lokasi sekolah default diambil dari `.env` (`SCHOOL_LAT`, `SCHOOL_LNG`, `SCHOOL_RADIUS`) dan dapat diubah di menu **Pengaturan**.
 
-{
-    "username": "admin",
-    "password": "password"
-}
+## Arsitektur
+
+```
+app/
+├── Enums/            StatusPresensi, StatusIzin, JenisIzin, Hari (label & warna badge)
+├── Services/         PresensiService, IzinService, AlpaService, StatistikService
+├── Http/
+│   ├── Controllers/  Admin/*, Siswa/*, Api/Admin/*, Api/Siswa/*  (tipis, memanggil service)
+│   ├── Requests/     Validasi (dipakai bersama oleh web & API)
+│   └── Resources/    Format JSON API
+├── Models/           Relasi, scope (filter, search), accessor
+├── Casts/DateOnly    Menyimpan kolom DATE sebagai Y-m-d (konsisten di MySQL & SQLite)
+└── Support/Geo       Rumus Haversine
+resources/views/
+├── components/       Layout, ikon, badge, modal, form, tabel, toast, dialog konfirmasi
+├── admin/ · siswa/   Halaman
+resources/js/components/  crudForm (modal tambah/ubah), presensiMap, locationPicker
 ```
 
-#### Login Siswa
+- Autentikasi memakai guard Laravel `admin` dan `siswa` (bukan session manual), dengan pembatasan 5 percobaan login per menit.
+- Aturan presensi hanya ada di `PresensiService`, sehingga web dan API selalu konsisten.
+- Query statistik memakai `GROUP BY` (bukan satu query per status/hari).
 
-```http
-POST /api/siswa/login
-Content-Type: application/json
+## API
 
-{
-    "nis": "22001",
-    "password": "123456"
-}
-```
+Semua endpoint berada di `/api`. Login mengembalikan Bearer token dengan ability `admin` atau `siswa`.
 
-### Endpoint Utama
+| Siswa | |
+|---|---|
+| `POST /siswa/login` | `{ nis, password }` → token |
+| `GET /siswa/me` · `PUT /siswa/profil` · `POST /siswa/logout` | |
+| `GET /siswa/presensi` | kondisi hari ini (`aksi`: masuk/pulang/selesai/…) |
+| `POST /siswa/presensi` | `{ latitude, longitude }` → masuk atau pulang otomatis |
+| `GET /siswa/rekap` · `GET /siswa/jadwal` | |
+| `GET/POST /siswa/izin` · `DELETE /siswa/izin/{id}` | |
 
-#### Admin API
+| Admin | |
+|---|---|
+| `POST /admin/login` | `{ username, password }` → token |
+| `GET /admin/dashboard` | ringkasan & tren 7 hari |
+| `apiResource`: `/admin/siswa`, `/admin/kelas`, `/admin/jadwal`, `/admin/rekap` | |
+| `GET /admin/izin` · `POST /admin/izin/{id}/approve` · `POST /admin/izin/{id}/reject` | |
+| `GET /admin/log` | |
 
--   `GET /api/admin/dashboard` - Data dashboard
--   `GET /api/admin/siswa` - List siswa
--   `POST /api/admin/siswa` - Tambah siswa
--   `GET /api/admin/kelas` - List kelas
--   `GET /api/admin/jadwal` - List jadwal
--   `GET /api/admin/rekap` - Data rekap presensi
--   `GET /api/admin/izin` - List permohonan izin
--   `POST /api/admin/izin/{id}/approve` - Approve izin
--   `POST /api/admin/izin/{id}/reject` - Reject izin
-
-#### Siswa API
-
--   `GET /api/siswa/me` - Data profil siswa
--   `GET /api/siswa/kelas` - Data kelas siswa
--   `GET /api/siswa/jadwal` - Jadwal pelajaran
--   `GET /api/siswa/rekap` - Rekap presensi pribadi
--   `GET /api/siswa/izin` - List izin siswa
--   `POST /api/siswa/izin` - Ajukan izin
--   `GET /api/siswa/presensi` - Data presensi hari ini
--   `POST /api/siswa/presensi` - Lakukan presensi
-
-## 📊 Struktur Database
-
-### Tabel Utama
-
--   **admins** - Data administrator
--   **siswas** - Data siswa
--   **kelas** - Data kelas/jurusan
--   **jadwals** - Jadwal pelajaran
--   **rekaps** - Rekap presensi harian
--   **izins** - Data permohonan izin
--   **logs** - Log aktivitas sistem
--   **settings** - Pengaturan sistem
-
-### Relasi
-
--   Siswa belongs to Kelas
--   Jadwal belongs to Kelas
--   Rekap belongs to Siswa
--   Izin belongs to Siswa dan Admin
-
-## 🔧 Commands
-
-### Artisan Commands
+## Testing
 
 ```bash
-# Setup lengkap (install, migrate, seed, build)
-composer run setup
-
-# Jalankan development server
-php artisan serve
-
-# Jalankan queue worker
-php artisan queue:work
-
-# Jalankan tests
 php artisan test
-
-# Clear cache
-php artisan config:clear
-php artisan cache:clear
-php artisan view:clear
 ```
 
-### Custom Commands
-
-```bash
-# Tandai siswa alpa otomatis
-php artisan rekap:alpa
-```
-
-## 📱 Penggunaan
-
-### Akses Web
-
-1. Buka `http://localhost:8000`
-2. Pilih login sebagai Admin atau Siswa
-
-### Data Login Default
-
-**Admin:**
-
--   Username: `admin`
--   Password: `password`
-
-**Siswa:**
-
--   NIS: `22001` (Budi Santoso)
--   Password: `123456`
-
-### Presensi Siswa
-
-1. Login sebagai siswa
-2. Akses menu "Presensi"
-3. Klik tombol presensi (akan validasi lokasi GPS)
-4. Sistem akan mencatat waktu check-in/check-out
-
-## 🤝 Contributing
-
-1. Fork repository
-2. Buat branch fitur (`git checkout -b feature/AmazingFeature`)
-3. Commit perubahan (`git commit -m 'Add some AmazingFeature'`)
-4. Push ke branch (`git push origin feature/AmazingFeature`)
-5. Buat Pull Request
-
-## 📝 Testing
-
-```bash
-# Jalankan semua tests
-composer run test
-
-# Jalankan tests dengan coverage
-php artisan test --coverage
-```
-
-## 📄 License
-
-Distributed under the MIT License. See `LICENSE` for more information.
-
-## 👥 Support
-
-Untuk pertanyaan atau dukungan, silakan buat issue di repository ini.
-
----
-
-**Catatan:** Admin dapat mengatur koordinat GPS dan radius presensi melalui menu Settings di dashboard admin untuk memastikan validasi lokasi yang akurat.
+Mencakup aturan presensi (radius, terlambat, pulang, libur, izin, batas jam), alur izin, autentikasi, API, dan render seluruh halaman.

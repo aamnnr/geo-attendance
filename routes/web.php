@@ -1,76 +1,78 @@
 <?php
 
+use App\Http\Controllers\Admin;
+use App\Http\Controllers\Siswa;
 use Illuminate\Support\Facades\Route;
 
-// ==================== ADMIN CONTROLLERS ====================
-use App\Http\Controllers\Web\Admin\{
-    AdminAuthController,
-    AdminDashboardController,
-    AdminKelasController,
-    AdminJadwalController,
-    AdminRekapController,
-    AdminIzinController,
-    AdminSiswaController,
-    AdminSettingController
-};
+Route::view('/', 'welcome')->name('home');
 
-// ==================== SISWA CONTROLLERS ====================
-use App\Http\Controllers\Web\Siswa\{
-    SiswaAuthController,
-    SiswaDashboardController,
-    SiswaRekapController,
-    SiswaPresensiController,
-    SiswaIzinController,
-    SiswaProfileController,
-    SiswaJadwalController
-};
-
-// ==================== LANDING PAGE ====================
-Route::get('/', fn() => view('welcome'))->name('home');
-
-
-// ==================== ADMIN AUTH ====================
+/*
+|--------------------------------------------------------------------------
+| Panel Admin
+|--------------------------------------------------------------------------
+*/
 Route::prefix('admin')->name('admin.')->group(function () {
-    Route::get('/login', [AdminAuthController::class, 'showLoginForm'])->name('login');
-    Route::post('/login', [AdminAuthController::class, 'login'])->name('login.submit');
-    Route::post('/logout', [AdminAuthController::class, 'logout'])->name('logout');
+    Route::middleware('guest:admin')->group(function () {
+        Route::get('login', [Admin\AuthController::class, 'create'])->name('login');
+        Route::post('login', [Admin\AuthController::class, 'store'])->name('login.store');
+    });
 
-    // ==================== ADMIN PANEL ====================
-    Route::middleware('admin.auth')->group(function () {
-        Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
-        Route::resource('/kelas', AdminKelasController::class);
-        Route::resource('/jadwal', AdminJadwalController::class);
-        Route::resource('/rekap', AdminRekapController::class);
-        Route::resource('/izin', AdminIzinController::class);
-        Route::post('/izin/{izin}/approve', [AdminIzinController::class, 'approve'])->name('izin.approve');
-        Route::post('/izin/{izin}/reject', [AdminIzinController::class, 'reject'])->name('izin.reject');
-        Route::resource('/siswa', AdminSiswaController::class);
-        Route::resource('/rekap', AdminRekapController::class);
-        Route::get('/rekap/export/excel', [AdminRekapController::class, 'exportExcel'])->name('rekap.export.excel');
-        Route::get('/rekap/export/pdf', [AdminRekapController::class, 'exportPdf'])->name('rekap.export.pdf');
-        Route::get('/settings', [AdminSettingController::class, 'index'])->name('settings.index');
-        Route::post('/settings', [AdminSettingController::class, 'update'])->name('settings.update');
+    Route::middleware('auth:admin')->group(function () {
+        Route::post('logout', [Admin\AuthController::class, 'destroy'])->name('logout');
+
+        Route::redirect('/', '/admin/dashboard');
+        Route::get('dashboard', Admin\DashboardController::class)->name('dashboard');
+
+        Route::resource('siswa', Admin\SiswaController::class);
+        Route::resource('kelas', Admin\KelasController::class)->only(['index', 'store', 'update', 'destroy'])->parameters(['kelas' => 'kelas']);
+        Route::resource('jadwal', Admin\JadwalController::class)->only(['index', 'store', 'update', 'destroy']);
+
+        Route::get('rekap/export/excel', [Admin\RekapController::class, 'exportExcel'])->name('rekap.export.excel');
+        Route::get('rekap/export/pdf', [Admin\RekapController::class, 'exportPdf'])->name('rekap.export.pdf');
+        Route::resource('rekap', Admin\RekapController::class)->only(['index', 'store', 'update', 'destroy']);
+
+        Route::get('izin', [Admin\IzinController::class, 'index'])->name('izin.index');
+        Route::post('izin', [Admin\IzinController::class, 'store'])->name('izin.store');
+        Route::post('izin/{izin}/approve', [Admin\IzinController::class, 'approve'])->name('izin.approve');
+        Route::post('izin/{izin}/reject', [Admin\IzinController::class, 'reject'])->name('izin.reject');
+
+        Route::resource('libur', Admin\LiburController::class)->only(['index', 'store', 'update', 'destroy']);
+
+        Route::get('pengaturan', [Admin\SettingController::class, 'edit'])->name('settings.edit');
+        Route::put('pengaturan', [Admin\SettingController::class, 'update'])->name('settings.update');
+
+        Route::get('log', Admin\ActivityLogController::class)->name('log');
     });
 });
 
-
-// ==================== SISWA AUTH ====================
+/*
+|--------------------------------------------------------------------------
+| Portal Siswa
+|--------------------------------------------------------------------------
+*/
 Route::prefix('siswa')->name('siswa.')->group(function () {
-    Route::get('/login', [SiswaAuthController::class, 'showLoginForm'])->name('login');
-    Route::post('/login', [SiswaAuthController::class, 'login'])->name('login.submit');
-    Route::post('/logout', [SiswaAuthController::class, 'logout'])->name('logout');
+    Route::middleware('guest:siswa')->group(function () {
+        Route::get('login', [Siswa\AuthController::class, 'create'])->name('login');
+        Route::post('login', [Siswa\AuthController::class, 'store'])->name('login.store');
+    });
 
-    // ==================== SISWA PANEL ====================
-    Route::middleware('siswa.auth')->group(function () {
-        Route::get('/dashboard', [SiswaDashboardController::class, 'index'])->name('dashboard');
-        Route::get('/rekap', [SiswaRekapController::class, 'index'])->name('rekap');
-        Route::get('/presensi', [SiswaPresensiController::class, 'index'])->name('presensi');
-        Route::post('/presensi', [SiswaPresensiController::class, 'store'])->name('presensi.store');
-        Route::get('/izin', [SiswaIzinController::class, 'index'])->name('izin');
-        Route::post('/izin', [SiswaIzinController::class, 'store'])->name('izin.store');
-        Route::delete('/izin/{izin}', [SiswaIzinController::class, 'destroy'])->name('izin.destroy');
-        Route::get('/profile', [SiswaProfileController::class, 'index'])->name('profile');
-        Route::put('/profile', [SiswaProfileController::class, 'update'])->name('profile.update');
-        Route::get('/jadwal', [SiswaJadwalController::class, 'index'])->name('jadwal');
+    Route::middleware('auth:siswa')->group(function () {
+        Route::post('logout', [Siswa\AuthController::class, 'destroy'])->name('logout');
+
+        Route::redirect('/', '/siswa/dashboard');
+        Route::get('dashboard', Siswa\DashboardController::class)->name('dashboard');
+
+        Route::get('presensi', [Siswa\PresensiController::class, 'create'])->name('presensi');
+        Route::post('presensi', [Siswa\PresensiController::class, 'store'])->name('presensi.store')->middleware('throttle:10,1');
+
+        Route::get('rekap', Siswa\RekapController::class)->name('rekap');
+        Route::get('jadwal', Siswa\JadwalController::class)->name('jadwal');
+
+        Route::get('izin', [Siswa\IzinController::class, 'index'])->name('izin');
+        Route::post('izin', [Siswa\IzinController::class, 'store'])->name('izin.store');
+        Route::delete('izin/{izin}', [Siswa\IzinController::class, 'destroy'])->name('izin.destroy');
+
+        Route::get('profil', [Siswa\ProfileController::class, 'edit'])->name('profile');
+        Route::put('profil', [Siswa\ProfileController::class, 'update'])->name('profile.update');
     });
 });

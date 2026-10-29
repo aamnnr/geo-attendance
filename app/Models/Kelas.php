@@ -4,38 +4,33 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class Kelas extends Model
 {
     use HasFactory;
 
     protected $table = 'kelas';
+
     protected $primaryKey = 'kelas_id';
-    
+
     protected $fillable = [
         'kelas_nama',
+        'wali_kelas',
     ];
 
-    /**
-     * Relationship dengan Siswa
-     */
-    public function siswa()
+    public function siswa(): HasMany
     {
         return $this->hasMany(Siswa::class, 'kelas_id', 'kelas_id');
     }
 
-    /**
-     * Relationship dengan Jadwal
-     */
-    public function jadwal()
+    public function jadwal(): HasMany
     {
         return $this->hasMany(Jadwal::class, 'kelas_id', 'kelas_id');
     }
 
-    /**
-     * Relationship dengan Rekap melalui Siswa
-     */
-    public function rekap()
+    public function rekap(): HasManyThrough
     {
         return $this->hasManyThrough(Rekap::class, Siswa::class, 'kelas_id', 'siswa_id', 'kelas_id', 'siswa_id');
     }

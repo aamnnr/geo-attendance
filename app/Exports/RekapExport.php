@@ -5,63 +5,44 @@ namespace App\Exports;
 use App\Models\Rekap;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
-use Carbon\Carbon;
+use Maatwebsite\Excel\Concerns\WithStyles;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-/**
- * File ini menangani logika untuk ekspor Excel.
- * Dibuat untuk AdminRekapController.
- */
-class RekapExport implements FromCollection, WithHeadings, WithMapping
+class RekapExport implements FromCollection, ShouldAutoSize, WithHeadings, WithMapping, WithStyles
 {
-    protected $rekaps;
+    /** @param  Collection<int, Rekap>  $rekaps  sudah di-eager load dengan siswa.kelas */
+    public function __construct(private readonly Collection $rekaps) {}
 
-    /**
-     * Terima data rekap yang sudah difilter dari controller
-     */
-    public function __construct(Collection $rekaps)
-    {
-        $this->rekaps = $rekaps;
-    }
-
-    /**
-     * Mengembalikan data yang akan diekspor
-     */
-    public function collection()
+    public function collection(): Collection
     {
         return $this->rekaps;
     }
 
-    /**
-     * Menentukan judul (header) untuk setiap kolom di Excel
-     */
     public function headings(): array
     {
-        return [
-            'Tanggal',
-            'NIS',
-            'Nama Siswa',
-            'Kelas',
-            'Jam Masuk',
-            'Jam Keluar',
-            'Status',
-        ];
+        return ['Tanggal', 'NIS', 'Nama Siswa', 'Kelas', 'Jam Masuk', 'Jam Keluar', 'Status', 'Keterangan'];
     }
 
-    /**
-     * Memetakan data dari $rekap ke format array untuk setiap baris
-     */
+    /** @param  Rekap  $rekap */
     public function map($rekap): array
     {
         return [
-            Carbon::parse($rekap->tanggal)->isoFormat('D MMM Y'),
-            $rekap->siswa->siswa_nis ?? 'N/A',
-            $rekap->siswa->siswa_nama ?? 'Siswa Dihapus',
-            $rekap->siswa->kelas->kelas_nama ?? 'Kelas Dihapus',
-            $rekap->jam_masuk ? Carbon::parse($rekap->jam_masuk)->format('H:i:s') : '-',
-            $rekap->jam_keluar ? Carbon::parse($rekap->jam_keluar)->format('H:i:s') : '-',
-            $rekap->status,
+            $rekap->tanggal->translatedFormat('d M Y'),
+            $rekap->siswa?->siswa_nis ?? '-',
+            $rekap->siswa?->siswa_nama ?? 'Siswa dihapus',
+            $rekap->siswa?->kelas?->kelas_nama ?? '-',
+            $rekap->jamMasuk() ?? '-',
+            $rekap->jamKeluar() ?? '-',
+            $rekap->status->label(),
+            $rekap->keterangan ?? '',
         ];
+    }
+
+    public function styles(Worksheet $sheet): array
+    {
+        return [1 => ['font' => ['bold' => true]]];
     }
 }

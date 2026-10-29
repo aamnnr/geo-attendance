@@ -1,11 +1,194 @@
 @import 'tailwindcss';
+@import 'leaflet/dist/leaflet.css';
 
-@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 @source '../**/*.blade.php';
 @source '../**/*.js';
+@source '../../app/Enums/*.php';
 
+/*
+ * Design tokens — terinspirasi tampilan "Paie Time & Attendance":
+ * kanvas putih bersih, aksen kuning-amber, judul serif, tabel lega.
+ */
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-sans: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+    --font-serif: 'Fraunces', ui-serif, Georgia, serif;
+
+    --color-brand-50: #fffbeb;
+    --color-brand-100: #fef3c7;
+    --color-brand-200: #fde68a;
+    --color-brand-300: #fcd34d;
+    --color-brand-400: #f8c43a;
+    --color-brand-500: #f5b622;
+    --color-brand-600: #d99a0b;
+    --color-brand-700: #b47608;
+    --color-brand-800: #925c0e;
+    --color-brand-900: #784c10;
+
+    --color-ink-50: #f7f7f8;
+    --color-ink-100: #eeeef0;
+    --color-ink-200: #e2e2e6;
+    --color-ink-300: #c9c9cf;
+    --color-ink-400: #9a9aa3;
+    --color-ink-500: #6f6f78;
+    --color-ink-600: #52525a;
+    --color-ink-700: #3a3a41;
+    --color-ink-800: #26262b;
+    --color-ink-900: #16161a;
+
+    --shadow-card: 0 1px 2px rgb(22 22 26 / 0.04), 0 1px 1px rgb(22 22 26 / 0.02);
+    --shadow-pop: 0 12px 32px -8px rgb(22 22 26 / 0.18), 0 2px 6px rgb(22 22 26 / 0.06);
+
+    --animate-fade-in: fade-in 0.2s ease-out;
+    --animate-slide-up: slide-up 0.25s ease-out;
+
+    @keyframes fade-in {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    @keyframes slide-up {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+}
+
+@layer base {
+    html {
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+        @apply bg-ink-50 font-sans text-ink-800 antialiased;
+    }
+
+    [x-cloak] {
+        display: none !important;
+    }
+
+    ::selection {
+        @apply bg-brand-200 text-ink-900;
+    }
+}
+
+@layer components {
+    /* ---------- Form controls ---------- */
+    .form-label {
+        @apply mb-1.5 block text-sm font-medium text-ink-700;
+    }
+
+    .form-input {
+        @apply block w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2.5 text-sm text-ink-900 placeholder:text-ink-400
+            transition focus:border-brand-500 focus:ring-4 focus:ring-brand-500/15 focus:outline-none
+            disabled:cursor-not-allowed disabled:bg-ink-50 disabled:text-ink-500;
+    }
+
+    .form-input[aria-invalid='true'] {
+        @apply border-red-400 focus:border-red-500 focus:ring-red-500/15;
+    }
+
+    .form-error {
+        @apply mt-1.5 text-xs font-medium text-red-600;
+    }
+
+    .form-hint {
+        @apply mt-1.5 text-xs text-ink-500;
+    }
+
+    /* ---------- Buttons ---------- */
+    .btn {
+        @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold whitespace-nowrap
+            transition focus-visible:ring-4 focus-visible:outline-none active:scale-[0.98]
+            disabled:pointer-events-none disabled:opacity-50;
+    }
+
+    .btn-sm {
+        @apply px-3 py-1.5 text-xs;
+    }
+
+    .btn-primary {
+        @apply bg-brand-500 text-ink-900 shadow-sm hover:bg-brand-400 focus-visible:ring-brand-500/30;
+    }
+
+    .btn-dark {
+        @apply bg-ink-900 text-white hover:bg-ink-700 focus-visible:ring-ink-900/20;
+    }
+
+    .btn-secondary {
+        @apply border border-ink-200 bg-white text-ink-700 shadow-sm hover:border-ink-300 hover:bg-ink-50 focus-visible:ring-ink-900/10;
+    }
+
+    .btn-ghost {
+        @apply text-ink-600 hover:bg-ink-100 hover:text-ink-900 focus-visible:ring-ink-900/10;
+    }
+
+    .btn-danger {
+        @apply bg-red-600 text-white hover:bg-red-500 focus-visible:ring-red-500/30;
+    }
+
+    .btn-icon {
+        @apply inline-flex size-9 items-center justify-center rounded-full text-ink-500 transition
+            hover:bg-ink-100 hover:text-ink-900 focus-visible:ring-4 focus-visible:ring-ink-900/10 focus-visible:outline-none;
+    }
+
+    /* ---------- Surfaces ---------- */
+    .card {
+        @apply rounded-2xl border border-ink-200/70 bg-white shadow-card;
+    }
+
+    /* ---------- Data table (gaya referensi) ---------- */
+    .table {
+        @apply w-full text-left text-sm;
+    }
+
+    .table thead th {
+        @apply border-b border-ink-200 bg-white px-4 py-3 text-xs font-medium whitespace-nowrap text-ink-500;
+    }
+
+    .table tbody td {
+        @apply border-b border-ink-100 px-4 py-3.5 align-middle text-ink-700;
+    }
+
+    .table tbody tr {
+        @apply transition-colors hover:bg-brand-50/50;
+    }
+
+    .table tbody tr:last-child td {
+        @apply border-b-0;
+    }
+
+    /* ---------- Segmented tabs (Pending / Approved / Rejected) ---------- */
+    .segmented {
+        @apply inline-flex rounded-lg border border-ink-200 bg-ink-100 p-1;
+    }
+
+    .segmented-item {
+        @apply inline-flex items-center gap-2 rounded-md px-3.5 py-1.5 text-sm font-medium text-ink-500 transition hover:text-ink-900;
+    }
+
+    .segmented-item[aria-current='page'] {
+        @apply bg-white text-ink-900 shadow-sm;
+    }
+
+    .segmented-count {
+        @apply inline-flex min-w-5 items-center justify-center rounded-full bg-ink-300 px-1.5 py-0.5 text-[11px] leading-none font-semibold text-white;
+    }
+
+    .segmented-item[aria-current='page'] .segmented-count {
+        @apply bg-ink-900;
+    }
+
+    /* ---------- Underline tabs (Timesheet / Time-off request) ---------- */
+    .tab-link {
+        @apply -mb-px inline-flex items-center gap-2 border-b-2 border-transparent px-1 pb-3 text-sm font-medium text-ink-500 transition hover:text-ink-900;
+    }
+
+    .tab-link[aria-current='page'] {
+        @apply border-brand-500 text-ink-900;
+    }
+}
+
+/* Leaflet: sesuaikan dengan radius kartu */
+.leaflet-container {
+    @apply z-0 font-sans;
 }

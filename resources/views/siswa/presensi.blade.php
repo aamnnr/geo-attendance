@@ -1,145 +1,90 @@
-@extends('layouts.siswa')
+@php
+    $aksi = $kondisi['aksi'];
+    $bisaPresensi = in_array($aksi, ['masuk', 'pulang'], true);
+    $rekap = $kondisi['rekap'];
+@endphp
 
-@section('title', 'Presensi')
-@section('page-title', 'Presensi Kehadiran')
+<x-layouts.siswa title="Presensi" :subtitle="$kondisi['tanggal']->translatedFormat('l, j F Y').' · '.$sekolah['nama']">
+    <div x-data="presensiMap({ school: @js($sekolah) })" class="grid gap-6 lg:grid-cols-5">
+        {{-- Peta --}}
+        <div class="card relative overflow-hidden lg:col-span-3">
+            <div x-ref="map" class="h-[22rem] w-full sm:h-[28rem] lg:h-[34rem]"></div>
 
-@section('content')
-<div classT="row">
-    <div class="col-md-8 offset-md-2">
-        <div class="card shadow-sm border-0">
-            <div class="card-body p-4 text-center">
-                
-                <h4 class="card-title">Presensi Berbasis Lokasi</h4>
-                <p class="text-muted">Pastikan Anda berada di area sekolah dan izinkan browser mengakses lokasi Anda.</p>
-                
-                <!-- 
-                  --- INI PERBAIKANNYA ---
-                  Menambahkan div untuk menampilkan pesan error atau sukses 
-                -->
-                @if (session('success'))
-                    <div class="alert alert-success">
-                        <i class="bi bi-check-circle-fill me-2"></i>
-                        {{ session('success') }}
-                    </div>
-                @endif
-                
-                @if (session('error'))
-                    <div class="alert alert-danger">
-                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                        {{ session('error') }}
-                    </div>
-                @endif
-                <!-- Selesai Perbaikan -->
+            <div class="pointer-events-none absolute inset-x-3 top-3 flex flex-wrap gap-2">
+                <span class="pointer-events-auto inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1.5 text-xs font-medium text-ink-700 shadow-pop">
+                    <span class="size-2 rounded-full bg-brand-500"></span> Radius {{ $sekolah['radius'] }} m
+                </span>
+                <span x-cloak x-show="status === 'ready'" class="pointer-events-auto inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1.5 text-xs font-medium text-ink-700 shadow-pop">
+                    <span class="size-2 rounded-full bg-sky-500"></span> Akurasi ±<span x-text="accuracy"></span> m
+                </span>
+            </div>
+        </div>
 
-                <button id="btnPresensi" class="btn btn-primary btn-lg w-100 py-3 mt-3">
-                    <span id="btnText">
-                        <i class="bi bi-geo-alt me-2"></i>Ambil Lokasi & Presensi Sekarang
-                    </span>
-                    <span id="btnLoading" class="d-none">
-                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                        Mencari lokasi...
-                    </span>
-                </button>
+        {{-- Panel status --}}
+        <div class="space-y-4 lg:col-span-2">
+            <div class="card p-6">
+                <p class="text-sm font-medium text-ink-500">Jarak ke sekolah</p>
 
-                <!-- Form tersembunyi untuk mengirim data lokasi -->
-                <form id="formPresensi" action="{{ route('siswa.presensi.store') }}" method="POST" class="d-none">
-                    @csrf
-                    <input type="hidden" name="latitude" id="latitude">
-                    <input type="hidden" name="longitude" id="longitude">
-                </form>
-
-                <div class="alert alert-info mt-3 d-none" id="lokasiInfo">
-                    Lokasi Anda: <span id="infoCoords"></span><br>
-                    Akurasi: <span id="infoAkurasi"></span> meter
+                {{-- Mencari lokasi --}}
+                <div x-show="status === 'locating'" class="mt-3 flex items-center gap-3">
+                    <span class="size-6 animate-spin rounded-full border-[3px] border-brand-200 border-t-brand-500"></span>
+                    <span class="text-sm text-ink-600">Mencari lokasi Anda…</span>
                 </div>
+
+                {{-- Gagal --}}
+                <div x-cloak x-show="status === 'error'" class="mt-3 rounded-xl bg-red-50 p-4">
+                    <p class="flex items-start gap-2 text-sm text-red-700"><x-icon name="alert" size="17" class="mt-0.5" /> <span x-text="error"></span></p>
+                    <button type="button" class="btn btn-secondary btn-sm mt-3" @click="locate()"><x-icon name="refresh" size="14" /> Coba lagi</button>
+                </div>
+
+                {{-- Siap --}}
+                <div x-cloak x-show="status === 'ready'" class="mt-1">
+                    <p class="font-serif text-5xl font-medium tracking-tight text-ink-900 tabular-nums" x-text="distanceLabel"></p>
+                    <span class="mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold"
+                          :class="inside ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'">
+                        <span class="size-1.5 rounded-full" :class="inside ? 'bg-emerald-500' : 'bg-red-500'"></span>
+                        <span x-text="inside ? 'Di dalam area sekolah' : 'Di luar area sekolah'"></span>
+                    </span>
+                    <p x-show="!inside" class="mt-3 text-sm text-ink-500">Dekati area sekolah hingga berada dalam radius {{ $sekolah['radius'] }} m untuk dapat presensi.</p>
+                </div>
+            </div>
+
+            <div class="card p-6">
+                @if ($bisaPresensi)
+                    <p class="text-sm text-ink-600">{{ $kondisi['pesan'] }}</p>
+                    @if ($rekap?->jamMasuk())
+                        <p class="mt-2 text-xs text-ink-500">Masuk tercatat pukul <strong class="text-ink-800">{{ $rekap->jamMasuk() }}</strong> · <x-badge :status="$rekap->status" /></p>
+                    @endif
+
+                    <form x-ref="form" method="POST" action="{{ route('siswa.presensi.store') }}" class="hidden">
+                        @csrf
+                        <input type="hidden" name="latitude" :value="lat">
+                        <input type="hidden" name="longitude" :value="lng">
+                    </form>
+
+                    <button type="button" @click="submit()" :disabled="!inside || submitting"
+                            class="btn {{ $aksi === 'masuk' ? 'btn-primary' : 'btn-dark' }} mt-5 w-full py-4 text-base">
+                        <span x-show="submitting" class="size-4 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
+                        <x-icon name="{{ $aksi === 'masuk' ? 'log-in' : 'log-out' }}" size="18" x-show="!submitting" />
+                        {{ $aksi === 'masuk' ? 'Presensi Masuk' : 'Presensi Pulang' }}
+                    </button>
+                    <p class="mt-3 text-center text-xs text-ink-400">Lokasi diverifikasi ulang oleh server saat presensi dikirim.</p>
+                @else
+                    <div class="flex items-start gap-3">
+                        <span class="flex size-10 shrink-0 items-center justify-center rounded-full {{ $aksi === 'selesai' ? 'bg-emerald-100 text-emerald-700' : 'bg-ink-100 text-ink-600' }}">
+                            <x-icon :name="$aksi === 'selesai' ? 'check-circle' : 'info'" size="19" />
+                        </span>
+                        <div>
+                            <p class="font-medium text-ink-900">{{ $aksi === 'selesai' ? 'Presensi lengkap' : 'Presensi tidak tersedia' }}</p>
+                            <p class="mt-1 text-sm text-ink-500">{{ $kondisi['pesan'] }}</p>
+                            @if ($rekap?->jamMasuk())
+                                <p class="mt-2 text-sm text-ink-600 tabular-nums">Masuk {{ $rekap->jamMasuk() }} · Pulang {{ $rekap->jamKeluar() ?? '--:--' }}</p>
+                            @endif
+                        </div>
+                    </div>
+                    <a href="{{ route('siswa.dashboard') }}" class="btn btn-secondary mt-5 w-full">Kembali ke beranda</a>
+                @endif
             </div>
         </div>
     </div>
-</div>
-@endsection
-
-@push('scripts')
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const btnPresensi = document.getElementById('btnPresensi');
-        const btnText = document.getElementById('btnText');
-        const btnLoading = document.getElementById('btnLoading');
-        
-        const formPresensi = document.getElementById('formPresensi');
-        const latInput = document.getElementById('latitude');
-        const lngInput = document.getElementById('longitude');
-
-        const lokasiInfo = document.getElementById('lokasiInfo');
-        const infoCoords = document.getElementById('infoCoords');
-        const infoAkurasi = document.getElementById('infoAkurasi');
-
-        btnPresensi.addEventListener('click', () => {
-            if (!navigator.geolocation) {
-                alert('Geolocation tidak didukung oleh browser Anda.');
-                return;
-            }
-
-            // Tampilkan loading
-            btnText.classList.add('d-none');
-            btnLoading.classList.remove('d-none');
-            btnPresensi.disabled = true;
-
-            // Opsi untuk akurasi tinggi
-            const options = {
-                enableHighAccuracy: true,
-                timeout: 10000, // 10 detik timeout
-                maximumAge: 0 // Jangan gunakan cache lokasi
-            };
-
-            navigator.geolocation.getCurrentPosition(pos => {
-                const lat = pos.coords.latitude;
-                const lng = pos.coords.longitude;
-                const accuracy = pos.coords.accuracy;
-
-                // Tampilkan info lokasi (opsional)
-                infoCoords.textContent = `${lat}, ${lng}`;
-                infoAkurasi.textContent = Math.round(accuracy);
-                lokasiInfo.classList.remove('d-none');
-                
-                // Masukkan data ke form tersembunyi
-                latInput.value = lat;
-                lngInput.value = lng;
-
-                // Kirim form
-                formPresensi.submit();
-
-            }, err => {
-                // Sembunyikan loading
-                btnText.classList.remove('d-none');
-                btnLoading.classList.add('d-none');
-                btnPresensi.disabled = false;
-
-                // Tampilkan error
-                let errorMsg = "Gagal mendapatkan lokasi. ";
-                switch(err.code) {
-                    case err.PERMISSION_DENIED:
-                        errorMsg += "Anda menolak izin akses lokasi.";
-                        break;
-                    case err.POSITION_UNAVAILABLE:
-                        errorMsg += "Informasi lokasi tidak tersedia.";
-                        break;
-                    case err.TIMEOUT:
-                        errorMsg += "Waktu permintaan lokasi habis (timeout). Coba lagi.";
-                        break;
-                    default:
-                        errorMsg += "Terjadi kesalahan tidak diketahui.";
-                        break;
-                }
-                // Tampilkan error di div info agar lebih jelas
-                infoCoords.textContent = errorMsg;
-                infoAkurasi.textContent = '';
-                lokasiInfo.classList.remove('d-none');
-                lokasiInfo.classList.remove('alert-info');
-                lokasiInfo.classList.add('alert-danger');
-
-            }, options);
-        });
-    });
-</script>
-@endpush
-
+</x-layouts.siswa>

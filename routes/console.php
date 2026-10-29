@@ -1,15 +1,6 @@
 <?php
 
-use Illuminate\Foundation\Inspiring;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 
-Artisan::command('inspire', function () {
-    $this->comment(Inspiring::quote());
-})->purpose('Display an inspiring quote');
-
-
-// Jalankan setiap jam 23:59
+// Tandai Alpa otomatis setiap hari pukul 23:59 (jalankan `php artisan schedule:work`).
 Schedule::command('rekap:alpa')->dailyAt('23:59');
-
-
